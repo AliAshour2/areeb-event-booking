@@ -9,6 +9,7 @@ import {
   query,
   where,
   orderBy,
+  Timestamp, // Added Timestamp
 } from "firebase/firestore";
 import { createApi, fakeBaseQuery } from "@reduxjs/toolkit/query/react";
 import { handleError } from "@/helpers/handleError";
@@ -17,15 +18,27 @@ export interface Booking {
   id: string;
   eventId: string;
   userId: string;
-  status: "pending" | "confirmed" | "cancelled";
-  quantity: number;
+  eventName: string; // Added
+  eventDate: string; // Added - ISO String
+  ticketsBooked: number; // Changed from quantity
   totalPrice: number;
-  bookedAt: string;
-  checkedIn?: boolean;
-  checkedInAt?: string;
+  status: "pending" | "confirmed" | "cancelled";
+  bookedAt: string; // ISO String
+  checkedIn: boolean; // Not optional, defaults to false
+  checkedInAt?: string | null; // ISO String or null
+  paymentDetails: { paymentId: string; status: string }; // Added
 }
 
-type CreateBookingDto = Omit<Booking, "id" | "status" | "bookedAt">;
+// Fields provided by the client when creating a booking
+type CreateBookingDto = {
+  userId: string;
+  eventId: string;
+  eventName: string;
+  eventDate: string; // Expect ISO string from client
+  ticketsBooked: number;
+  totalPrice: number;
+  paymentDetails: { paymentId: string; status: string };
+};
 
 export const bookingApi = createApi({
   reducerPath: "bookingApi",
@@ -41,10 +54,23 @@ export const bookingApi = createApi({
             orderBy("bookedAt", "desc")
           );
           const querySnapshot = await getDocs(q);
-          const bookings = querySnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Booking[];
+          const bookings = querySnapshot.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              eventId: data.eventId,
+              userId: data.userId,
+              eventName: data.eventName,
+              eventDate: data.eventDate?.toDate ? data.eventDate.toDate().toISOString() : data.eventDate,
+              ticketsBooked: data.ticketsBooked,
+              totalPrice: data.totalPrice,
+              status: data.status,
+              bookedAt: data.bookedAt?.toDate ? data.bookedAt.toDate().toISOString() : data.bookedAt,
+              checkedIn: data.checkedIn || false,
+              checkedInAt: data.checkedInAt?.toDate ? data.checkedInAt.toDate().toISOString() : data.checkedInAt,
+              paymentDetails: data.paymentDetails,
+            } as Booking;
+          });
           return { data: bookings };
         } catch (error) {
           return handleError(error);
@@ -71,11 +97,23 @@ export const bookingApi = createApi({
             );
             
             const querySnapshot = await getDocs(q);
-            const bookings = querySnapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            })) as Booking[];
-            
+            const bookings = querySnapshot.docs.map((doc) => {
+              const data = doc.data();
+              return {
+                id: doc.id,
+                eventId: data.eventId,
+                userId: data.userId,
+                eventName: data.eventName,
+                eventDate: data.eventDate?.toDate ? data.eventDate.toDate().toISOString() : data.eventDate,
+                ticketsBooked: data.ticketsBooked,
+                totalPrice: data.totalPrice,
+                status: data.status,
+                bookedAt: data.bookedAt?.toDate ? data.bookedAt.toDate().toISOString() : data.bookedAt,
+                checkedIn: data.checkedIn || false,
+                checkedInAt: data.checkedInAt?.toDate ? data.checkedInAt.toDate().toISOString() : data.checkedInAt,
+                paymentDetails: data.paymentDetails,
+              } as Booking;
+            });
             return { data: bookings };
           } catch (indexError: unknown) {
             if ((indexError as { code: string }).code === 'failed-precondition') {
@@ -86,22 +124,37 @@ export const bookingApi = createApi({
               );
               
               const querySnapshot = await getDocs(simpleQ);
-              const bookings = querySnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-              })) as Booking[];
+              let bookings = querySnapshot.docs.map((doc) => {
+                const data = doc.data();
+                return {
+                  id: doc.id,
+                  eventId: data.eventId,
+                  userId: data.userId,
+                  eventName: data.eventName,
+                  eventDate: data.eventDate?.toDate ? data.eventDate.toDate().toISOString() : data.eventDate,
+                  ticketsBooked: data.ticketsBooked,
+                  totalPrice: data.totalPrice,
+                  status: data.status,
+                  bookedAt: data.bookedAt?.toDate ? data.bookedAt.toDate().toISOString() : data.bookedAt,
+                  checkedIn: data.checkedIn || false,
+                  checkedInAt: data.checkedInAt?.toDate ? data.checkedInAt.toDate().toISOString() : data.checkedInAt,
+                  paymentDetails: data.paymentDetails,
+                } as Booking;
+              });
               
               // Sort manually in memory
-              bookings.sort((a, b) => 
-                new Date(b.bookedAt).getTime() - new Date(a.bookedAt).getTime()
-              );
+              bookings.sort((a, b) => {
+                // Ensure bookedAt is a string (ISO) before creating Date objects for sorting
+                const dateA = typeof a.bookedAt === 'string' ? new Date(a.bookedAt).getTime() : 0;
+                const dateB = typeof b.bookedAt === 'string' ? new Date(b.bookedAt).getTime() : 0;
+                return dateB - dateA;
+              });
               
               return { data: bookings };
             }
             throw indexError;
           }
         } catch (error) {
-          console.error('Error fetching bookings:', error);
           return handleError(error);
         }
       },
@@ -118,10 +171,23 @@ export const bookingApi = createApi({
             orderBy("bookedAt", "desc")
           );
           const querySnapshot = await getDocs(q);
-          const bookings = querySnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Booking[];
+          const bookings = querySnapshot.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              eventId: data.eventId,
+              userId: data.userId,
+              eventName: data.eventName,
+              eventDate: data.eventDate?.toDate ? data.eventDate.toDate().toISOString() : data.eventDate,
+              ticketsBooked: data.ticketsBooked,
+              totalPrice: data.totalPrice,
+              status: data.status,
+              bookedAt: data.bookedAt?.toDate ? data.bookedAt.toDate().toISOString() : data.bookedAt,
+              checkedIn: data.checkedIn || false,
+              checkedInAt: data.checkedInAt?.toDate ? data.checkedInAt.toDate().toISOString() : data.checkedInAt,
+              paymentDetails: data.paymentDetails,
+            } as Booking;
+          });
           return { data: bookings };
         } catch (error) {
           return handleError(error);
@@ -133,15 +199,40 @@ export const bookingApi = createApi({
     createBooking: builder.mutation<Booking, CreateBookingDto>({
       async queryFn(bookingData) {
         try {
-          const booking = {
-            ...bookingData,
+          // Data to be stored in Firestore, converting dates to Timestamps
+          const dataToStore = {
+            userId: bookingData.userId,
+            eventId: bookingData.eventId,
+            eventName: bookingData.eventName,
+            eventDate: Timestamp.fromDate(new Date(bookingData.eventDate)), // Convert ISO string to Timestamp
+            ticketsBooked: bookingData.ticketsBooked,
+            totalPrice: bookingData.totalPrice,
+            paymentDetails: bookingData.paymentDetails,
             status: "confirmed" as const,
-            bookedAt: new Date().toISOString(),
+            bookedAt: Timestamp.fromDate(new Date()), // Store as Timestamp
             checkedIn: false,
+            checkedInAt: null, // Initialize checkedInAt as null
           };
+
           const bookingsRef = collection(db, "bookings");
-          const docRef = await addDoc(bookingsRef, booking);
-          return { data: { id: docRef.id, ...booking } };
+          const docRef = await addDoc(bookingsRef, dataToStore);
+
+          // Data to return to the client, conforming to the Booking interface (dates as ISO strings)
+          const newBooking: Booking = {
+            id: docRef.id,
+            userId: bookingData.userId,
+            eventId: bookingData.eventId,
+            eventName: bookingData.eventName,
+            eventDate: bookingData.eventDate, // Return the original ISO string for eventDate
+            ticketsBooked: bookingData.ticketsBooked,
+            totalPrice: bookingData.totalPrice,
+            paymentDetails: bookingData.paymentDetails,
+            status: "confirmed",
+            bookedAt: dataToStore.bookedAt.toDate().toISOString(), // Convert stored Timestamp back to ISO string
+            checkedIn: false,
+            checkedInAt: null,
+          };
+          return { data: newBooking };
         } catch (error) {
           return handleError(error);
         }
@@ -171,7 +262,7 @@ export const bookingApi = createApi({
           const docRef = doc(db, "bookings", bookingId);
           await updateDoc(docRef, {
             checkedIn: true,
-            checkedInAt: new Date().toISOString(),
+            checkedInAt: Timestamp.fromDate(new Date()), // Store as Timestamp
           });
           return { data: undefined };
         } catch (error) {

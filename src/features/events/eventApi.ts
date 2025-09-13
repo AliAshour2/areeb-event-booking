@@ -28,8 +28,6 @@ export const eventApi = createApi({
     getEvents: builder.query<Event[], EventFilters | void>({
       async queryFn(filters: EventFilters = {}) {
         try {
-          console.log("Applying filters:", JSON.stringify(filters, null, 2));
-          
           const eventsRef = collection(db, "events");
           const queryConstraints = [];
           
@@ -43,8 +41,6 @@ export const eventApi = createApi({
           
 
           if (filters.tags && filters.tags.length > 0) {
-            console.log(`Filtering by tags: ${filters.tags.join(', ')}`);
-            
             if (filters.tags.length === 1) {
 
               queryConstraints.push(where("tags", "array-contains", filters.tags[0]));
@@ -78,12 +74,8 @@ export const eventApi = createApi({
             ? query(eventsRef, ...queryConstraints) 
             : query(eventsRef, orderBy("date", "asc"));
             
-          console.log("Executing query with constraints:", queryConstraints.length);
-            
           try {
             const querySnapshot = await getDocs(baseQuery);
-            console.log(`Found ${querySnapshot.docs.length} events from database`);
-            
             let events = querySnapshot.docs.map((doc) => {
               const data = doc.data();
               
@@ -105,7 +97,6 @@ export const eventApi = createApi({
 
             // Handle category filtering client-side if we couldn't use it in the query
             if (filters.category && hasOtherFilters) {
-              console.log(`Filtering by category client-side: ${filters.category}`);
               events = events.filter(event => 
                 event.category?.toLowerCase() === filters.category?.toLowerCase()
               );
@@ -113,7 +104,6 @@ export const eventApi = createApi({
 
             // Handle additional tag filtering client-side if needed (for more than 10 tags)
             if (filters.tags && filters.tags.length > 10) {
-              console.log("Filtering additional tags client-side");
               events = events.filter((event) => {
                 // For tags beyond the 10th, check if they exist in the event tags
                 return filters.tags!.slice(10).every(tag => 
@@ -127,7 +117,6 @@ export const eventApi = createApi({
             // Apply search filter client-side
             if (filters.search) {
               const term = filters.search.toLowerCase();
-              console.log(`Applying search filter: ${term}`);
               events = events.filter((event) =>
                 event.title.toLowerCase().includes(term) || 
                 event.description.toLowerCase().includes(term) ||
@@ -140,14 +129,11 @@ export const eventApi = createApi({
             // Ensure events are sorted by date
             events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
             
-            console.log(`Returning ${events.length} events after all filters`);
             return { data: events };
           } catch (queryError) {
-            console.error('Error executing query:', queryError);
             return handleError(queryError);
           }
         } catch (error) {
-          console.error('Error in getEvents:', error);
           return handleError(error);
         }
       },

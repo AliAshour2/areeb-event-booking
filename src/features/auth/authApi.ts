@@ -72,6 +72,7 @@ export const authApi = createApi({
             email: userCredential.user.email!,
             name: userCredential.user.displayName!,
             role: userData?.role || UserRole.USER,
+            avatar: userCredential.user.photoURL || undefined, // Added this line
           };
           return { data: user };
         } catch (error) {
